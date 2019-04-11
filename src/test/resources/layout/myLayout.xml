@@ -1,0 +1,150 @@
+<layout>
+
+	<!-- HEADER -->
+	<record identifier="0">		
+		<field name="CONTROLE_BANCO" size="3" type="A" />
+		<field name="CONTROLE_LOTE" size="4" type="A" />
+		<field name="CONTROLE_REGISTRO" size="1"  type="A" />		
+		<field name="CNAB1" size="9"  type="A" />		
+		<field name="EMPRESA_INSCRICAO_TIPO" size="1"  type="A" />
+		<field name="EMPRESA_INSCRICAO_NUMERO" size="14"  type="A" />		
+		<field name="EMPRESA_CONVENIO" size="20"  type="A" />		
+		<field name="EMPRESA_CC_AGENCIA_CODIGO" size="5"  type="A" />
+		<field name="EMPRESA_CC_AGENCIA_DV" size="1"  type="A" />		
+		<field name="EMPRESA_CC_CONTA_CODIGO" size="12"  type="A" />
+		<field name="EMPRESA_CC_CONTA_DV" size="1"  type="A" />		
+		<field name="EMPRESA_CC_DV" size="1"  type="A" />		
+		<field name="EMPRESA_NOME" size="30"  type="A" />		
+		<field name="NOME_BANCO" size="30"  type="A" />		
+		<field name="CNAB2" size="10"  type="A" />
+		<field name="ARQUIVO_CODIGO" size="1"  type="A" />
+		<field name="ARQUIVO_DATA_GERACAO" size="8"  type="A" />
+		<field name="ARQUIVO_HORA_GERACAO" size="6"  type="A" />
+		<field name="ARQUIVO_SEQUENCIA_NSA" size="6"  type="A" />
+		<field name="ARQUIVO_LAYOUT" size="3"  type="A" />
+		<field name="ARQUIVO_DENSIDADE" size="5"  type="A" />		
+		<field name="RESERVADO_BANCO" size="20"  type="A" />
+		<field name="RESERVADO_EMPRESA" size="20"  type="A" />
+		<field name="CNAB3" size="19"  type="A" />		
+		<field name="ERROS" size="10"  type="A" />		
+	</record>
+	
+	<!-- HEADER LOTE - PAGAMENTO DE TITULO DE COBRANCA -->
+	<record identifier="1">		
+		<field name="CONTROLE_BANCO" size="3" type="A" />
+		<field name="CONTROLE_LOTE" size="4" type="A" />
+		<field name="CONTROLE_REGISTRO" size="1"  type="A" />
+		<field name="SERVICO_TIPO_OPERACAO" size="1"  type="A" />
+		<field name="SERVICO_TIPO_SERVICO" size="2"  type="A" />
+		<field name="SERVICO_FORMA_LANCAMENTO" size="2"  type="A" />
+		<field name="SERVICO_LAYOUT_LOTE" size="3"  type="A" />
+		<field name="CNAB1" size="1"  type="A" />
+		<field name="EMPRESA_INSCRICAO_TIPO" size="1"  type="A" />
+		<field name="EMPRESA_INSCRICAO_NUMERO" size="14"  type="A" />
+		<field name="EMPRESA_CONVENIO" size="20"  type="A" />		
+		<field name="EMPRESA_CC_AGENCIA_CODIGO" size="5"  type="A" />
+		<field name="EMPRESA_CC_AGENCIA_DV" size="1"  type="A" />		
+		<field name="EMPRESA_CC_CONTA_CODIGO" size="12"  type="A" />
+		<field name="EMPRESA_CC_CONTA_DV" size="1"  type="A" />		
+		<field name="EMPRESA_CC_DV" size="1"  type="A" />		
+		<field name="EMPRESA_NOME" size="30"  type="A" />			
+		<field name="INFORMACAO1" size="40"  type="A" />			
+		<field name="ENDERECO_LOGRADOURO" size="30"  type="A" />
+		<field name="ENDERECO_NUMERO" size="5"  type="A" />
+		<field name="ENDERECO_COMPLEMENTO" size="15"  type="A" />
+		<field name="ENDERECO_CIDADE" size="20"  type="A" />
+		<field name="ENDERECO_CEP" size="5"  type="A" />
+		<field name="ENDERECO_COMPLEMENTO_CEP" size="3"  type="A" />
+		<field name="ENDERECO_UF" size="2"  type="A" />
+		<field name="CNAB2" size="8"  type="A" />
+		<field name="ERROS" size="10"  type="A" />
+	</record>
+	
+	<!-- DETALHE - PAGAMENTO DE TITULO DE COBRANCA GENERICO -->
+	<record identifier="3">		
+		<field name="CONTROLE_BANCO" size="3" type="A" />
+		<field name="CONTROLE_LOTE" size="4" type="A" />
+		<field name="CONTROLE_REGISTRO" size="1"  type="A" />		
+		<field name="SERVICO_NR_REGISTRO" size="5"  type="A" />
+		<field name="SERVICO_COD_SEGMENTO" size="1"  type="A" />		
+		<field name="DADOS1" size="3"  type="A" />
+		<field name="SEGMENTO_REGISTRO" size="2"  type="A" /> <!-- Este campo sera utilizado para identificar se eh registro J ou J52 -->
+		<field name="DADOS2" size="211"  type="A" />
+		<field name="ERROS" size="10"  type="A" />
+	</record>
+	
+	<!-- PARA PARSE DO PAGAMENTO DE TITULO DE COBRANCA - J -->
+	<record identifier="J">		
+		<field name="CONTROLE_BANCO" size="3" type="A" />
+		<field name="CONTROLE_LOTE" size="4" type="A" />
+		<field name="CONTROLE_REGISTRO" size="1"  type="A" />		
+		<field name="SERVICO_NR_REGISTRO" size="5"  type="A" />
+		<field name="SERVICO_COD_SEGMENTO" size="1"  type="A" />		
+		<field name="SERVICO_MOVIMENTO_TIPO" size="1"  type="A" />
+		<field name="SERVICO_MOVIMENTO_CODIGO" size="2"  type="A" />		
+		<field name="PAGAMENTO_COD_BARRAS" size="44"  type="A" />
+		<field name="PAGAMENTO_NOME_BENEFICIARIO" size="30"  type="A" />
+		<field name="PAGAMENTO_DATA_VENCIMENTO" size="8"  type="A" />
+		<field name="PAGAMENTO_VALOR_TITULO" size="15" type="A"  />
+		<field name="PAGAMENTO_VALOR_DESCONTO" size="15"  type="A"  />
+		<field name="PAGAMENTO_VALOR_ACRESCIMOS" size="15"  type="A" />
+		<field name="PAGAMENTO_DATA_PAGAMENTO" size="8"  type="A" />
+		<field name="PAGAMENTO_VALOR_PAGAMENTO" size="15"  type="A"  />
+		<field name="PAGAMENTO_QTD_MOEDA" size="15"  type="A" />
+		<field name="PAGAMENTO_REF_PAGADOR" size="20"  type="A" />		
+		<field name="NOSSO_NUMERO" size="20"  type="A" />
+		<field name="CODIGO_MOEDA" size="2"  type="A" />
+		<field name="CNAB1" size="6"  type="A" />		
+		<field name="ERROS" size="10"  type="A" />
+	</record>
+	
+	<!-- PARA PARSE DO PAGAMENTO DE TITULO DE COBRANCA - J52 -->
+	<record identifier="J52">		
+		<field name="CONTROLE_BANCO" size="3" type="A" />
+		<field name="CONTROLE_LOTE" size="4" type="A" />
+		<field name="CONTROLE_REGISTRO" size="1"  type="A" />		
+		<field name="SERVICO_NR_REGISTRO" size="5"  type="A" />
+		<field name="SERVICO_COD_SEGMENTO" size="1"  type="A" />		
+		<field name="SERVICO_CNAB" size="1"  type="A" />
+		<field name="SERVICO_COD_MOV_REMESSA" size="2"  type="A" />				
+		<field name="CD_REGISTRO_OPCIONAL" size="2"  type="A" />				
+		<field name="DADOS_PAGADOR1_INSCRICAO_TIPO" size="1"  type="A" />
+		<field name="DADOS_PAGADOR1_INSCRICAO_NUMERO" size="15"  type="A" />
+		<field name="DADOS_PAGADOR1_NOME" size="40"  type="A" />		
+		<field name="DADOS_BENEFICIARIO_INSCRICAO_TIPO" size="1"  type="A" />
+		<field name="DADOS_BENEFICIARIO_INSCRICAO_NUMERO" size="15"  type="A" />
+		<field name="DADOS_BENEFICIARIO_NOME" size="40"  type="A" />		
+		<field name="DADOS_AVALISTA_INSCRICAO_TIPO" size="1"  type="A" />
+		<field name="DADOS_AVALISTA_INSCRICAO_NUMERO" size="15"  type="A" />
+		<field name="DADOS_AVALISTA_NOME" size="40"  type="A" />
+		<field name="CNAB1" size="43"  type="A" />		
+		<field name="ERROS" size="10"  type="A" />
+	</record>
+	
+	<!-- TRAILLER LOTE - PAGAMENTO DE TITULO DE COBRANCA -->
+	<record identifier="5">		
+		<field name="CONTROLE_BANCO" size="3" type="A" />
+		<field name="CONTROLE_LOTE" size="4" type="A" />
+		<field name="CONTROLE_REGISTRO" size="1"  type="A" />		
+		<field name="CNAB1" size="9"  type="A" />
+		<field name="TOTAIS_QT_REGISTROS" size="6"  type="A" />
+		<field name="TOTAIS_SOMA_VALORES" size="18" type="A" />
+		<field name="TOTAIS_SOMA_MOEDA" size="18" type="A"  />
+		<field name="NUMERO_AVISO_DEBITO" size="6"  type="A" />
+		<field name="CNAB2" size="165"  type="A" />		
+		<field name="ERROS" size="10"  type="A" />
+	</record>
+	
+	<!-- TRAILLER -->
+	<record identifier="9">		
+		<field name="CONTROLE_BANCO" size="3" type="A" />
+		<field name="CONTROLE_LOTE" size="4" type="A" />
+		<field name="CONTROLE_REGISTRO" size="1"  type="A" />		
+		<field name="CNAB1" size="9"  type="A" />
+		<field name="TOTAIS_QT_LOTES" size="6"  type="A" />
+		<field name="TOTAIS_QT_REGISTROS" size="6"  type="A" />
+		<field name="TOTAIS_QT_CONTAS_CONCILIADAS" size="6"  type="A" />
+		<field name="CNAB2" size="195"  type="A" />		
+		<field name="ERROS" size="10"  type="A" />
+	</record>
+</layout>
