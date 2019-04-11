@@ -15,8 +15,8 @@ public class XMLLoaderTest
 	@Test
     public void loadXML() throws Exception
     {
-		LayoutTO layout = XMLLoader.loadLayoutFromXML("myLayout.xml");
-        assertEquals(layout.getRecords().size(), 7);
-        assertEquals(layout.getRecord("0").getFields().size(), 25);
+		LayoutTO layout = XMLLoader.loadLayoutFromXML("layout2.xml");
+        assertEquals(layout.getRecords().size(), 1);
+        assertEquals(layout.getRecord("0").getFields().size(), 43);
     }
 }

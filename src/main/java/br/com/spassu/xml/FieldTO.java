@@ -47,6 +47,8 @@ public class FieldTO implements Serializable
   private boolean completeToSize;
 
   private String description;
+  
+  private int start;
 
   public FieldTO()
   {
@@ -60,6 +62,21 @@ public class FieldTO implements Serializable
   public FieldTO(String name, int size, String type)
   {
     this.name = name;
+    this.size = size;
+    this.type = type;
+    this.format = null;
+    this.filler = false;
+  }
+  
+  /**
+   * @param start
+   * @param size
+   * @param format
+   */
+  public FieldTO(String name, int start, int size, String type)
+  {
+    this.name = name;
+    this.start = start;
     this.size = size;
     this.type = type;
     this.format = null;
