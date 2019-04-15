@@ -1,7 +1,7 @@
 package br.com.spassu;
 
-import br.com.spassu.batchfile.BatchFile;
-import br.com.spassu.batchfile.xml.XMLLoader;
+import br.com.spassu.parallelbatchprocess.ParallelBatchProcess;
+import br.com.spassu.parallelbatchprocess.read.xml.XMLLoader;
 
 public class StringParser 
 {

@@ -1,4 +1,4 @@
-package br.com.spassu.batchfile.xml;
+package br.com.spassu.parallelbatchprocess.read.xml;
 
 import java.io.Serializable;
 import java.util.ArrayList;

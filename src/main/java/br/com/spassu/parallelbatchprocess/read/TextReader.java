@@ -1,4 +1,4 @@
-package br.com.spassu.batchfile;
+package br.com.spassu.parallelbatchprocess.read;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -6,22 +6,26 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.concurrent.locks.ReentrantReadWriteLock.ReadLock;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-import br.com.spassu.batchfile.xml.FieldTO;
-import br.com.spassu.batchfile.xml.RecordTO;
+import br.com.spassu.parallelbatchprocess.ProcessState;
+import br.com.spassu.parallelbatchprocess.read.xml.FieldTO;
+import br.com.spassu.parallelbatchprocess.read.xml.RecordTO;
 
-public class RecordBufferedReader  {
+public class TextReader implements Reader {
 	BufferedReader br;
 	RecordTO recordLayout;
 	int recordLength;
+	ProcessState state = ProcessState.NOT_STARTED;
 
-	public RecordBufferedReader(String path, RecordTO recordLayout) throws IOException {
+	public TextReader(String path, RecordTO recordLayout) throws IOException {
 		br = Files.newBufferedReader(Paths.get(path));
 		this.recordLayout = recordLayout;
 		this.recordLength = calculateRecordSize(recordLayout);
@@ -66,6 +70,24 @@ public class RecordBufferedReader  {
 							.sum();
 
 		return recordSize;
+	}
+	
+	private Map<String, String> createRecordMap(String recordStr) {	
+		return recordLayout
+			.getFields()
+			.stream()
+			.collect(
+				Collectors.toMap(
+					FieldTO::getName,
+					fieldTO -> recordStr.substring(fieldTO.getStart()-1, fieldTO.getStart()-1+fieldTO.getSize())
+				)
+			);
+	}
+
+	@Override
+	public Stream<Map<String, String>> getRecordsMap() {
+		return recordStream()
+			.map(this::createRecordMap);
 	}
 
 }

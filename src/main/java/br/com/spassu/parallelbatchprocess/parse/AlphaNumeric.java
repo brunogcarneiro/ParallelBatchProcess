@@ -1,4 +1,4 @@
-package br.com.spassu.batchfile.model;
+package br.com.spassu.parallelbatchprocess.parse;
 
 public class AlphaNumeric extends Field {
 
