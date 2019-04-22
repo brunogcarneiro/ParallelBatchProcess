@@ -20,6 +20,7 @@ import br.com.spassu.parallelbatchprocess.read.xml.FieldTO;
 import br.com.spassu.parallelbatchprocess.read.xml.RecordTO;
 
 public class TextReader implements Reader {
+	private int DELAY = 0;
 	BufferedReader br;
 	RecordTO recordLayout;
 	int recordLength;
@@ -33,17 +34,18 @@ public class TextReader implements Reader {
 	
 	public Stream<String> recordStream() {
         Iterator<String> iter = new Iterator<String>() {
-            char[] nextLine;
+        	int nextLineLength = -1;
+            char[] nextLine = new char[recordLength];
 
             public boolean hasNext() {
-                if (nextLine != null) {
+                if (nextLineLength > -1) {
                     return true;
                 } else {
                     try {
-                    	nextLine = new char[recordLength];
-                        br.read(nextLine,0,recordLength);
+                    	//nextLineLength = -1;
+                    	nextLineLength = br.read(nextLine,0,recordLength); //read will return -1 if end of file was found, otherwise, the quantity of read characters.
                         br.readLine(); //descarta o restante da linha
-                        return (nextLine != null);
+                        return (nextLineLength > -1);
                     } catch (IOException e) {
                         throw new UncheckedIOException(e);
                     }
@@ -53,12 +55,25 @@ public class TextReader implements Reader {
             public String next() {
                 if (nextLine != null || hasNext()) {
                     String line = new String(nextLine);
-                    nextLine = null;
+                    nextLineLength = -1;
+                    
+                    delay();//Used to simulate communication overhead. Default is 0 ms;
+                    
                     return line;
                 } else {
                     throw new NoSuchElementException();
                 }
             }
+
+			private void delay() {
+				if(DELAY < 1) return;
+				
+				try {
+					Thread.sleep(DELAY);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+			}
         };
         return StreamSupport.stream(Spliterators.spliteratorUnknownSize(
                 iter, Spliterator.ORDERED | Spliterator.NONNULL), false);
@@ -85,9 +100,18 @@ public class TextReader implements Reader {
 	}
 
 	@Override
-	public Stream<Map<String, String>> getRecordsMap() {
-		return recordStream()
-			.map(this::createRecordMap);
+	public Stream<String> getRecordsMap() {
+		return recordStream();
+			//.map(this::createRecordMap);
 	}
 
+	@Override
+	public void setDelay(int miliseconds) {
+		DELAY = miliseconds;
+	}
+	
+	public Stream<String> lines() {
+		return br.lines();
+				//.map(this::createRecordMap);
+	}
 }

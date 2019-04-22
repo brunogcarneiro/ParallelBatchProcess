@@ -1,10 +1,11 @@
 package br.com.spassu.parallelbatchprocess;
 
 import java.io.IOException;
-import java.util.HashMap;
+import java.sql.SQLException;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -14,31 +15,32 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
-import javax.swing.plaf.SliderUI;
-
-import br.com.spassu.parallelbatchprocess.parse.Field;
 import br.com.spassu.parallelbatchprocess.parse.Parser;
+import br.com.spassu.parallelbatchprocess.read.ReadLineHelper;
 import br.com.spassu.parallelbatchprocess.read.Reader;
-import br.com.spassu.parallelbatchprocess.read.TextReader;
 import br.com.spassu.parallelbatchprocess.read.xml.FieldTO;
-import br.com.spassu.parallelbatchprocess.read.xml.LayoutTO;
 import br.com.spassu.parallelbatchprocess.read.xml.RecordTO;
+import br.com.spassu.parallelbatchprocess.writer.Writer;
 
 public class ParallelBatchProcess {
 	private RecordTO recordLayout;
 	private Reader reader;
 	private Parser parser;
+	private Writer writer;
 	private ProcessState readerState = ProcessState.NOT_STARTED;
 	private ProcessState parserState = ProcessState.NOT_STARTED;
+	private ProcessState writerState = ProcessState.NOT_STARTED;
+	private boolean log = true;
+	private boolean logProcessState = false;
 	
-	private ConcurrentLinkedQueue<Map<String,String>> readRecordsQueue = new ConcurrentLinkedQueue<>();
-	private ConcurrentLinkedQueue<Map<String,Object>> parsedRecordsQueue = new ConcurrentLinkedQueue<>();
+	private ConcurrentLinkedQueue<String> readRecordsQueue = new ConcurrentLinkedQueue<>();
+	private ConcurrentLinkedQueue<Map<FieldTO,Object>> parsedRecordsQueue = new ConcurrentLinkedQueue<>();
 	//private ConcurrentLinkedQueue<Record> parsedRecords; 
 	
-	public ParallelBatchProcess(Reader reader, Parser parser, RecordTO recordLayout) throws IOException {
-
+	public ParallelBatchProcess(Reader reader, Parser parser, RecordTO recordLayout, Writer writer) throws IOException {
 		this.reader = reader;
 		this.parser = parser;
+		this.writer = writer;
 		this.recordLayout = recordLayout;
 	}
 
@@ -48,19 +50,36 @@ public class ParallelBatchProcess {
 			service = Executors.newCachedThreadPool();
 			
 			service.execute(this::readRecords);
-			service.execute(this::parseRecords);
+			//service.execute(this::parseRecords);
+			//service.execute(this::writeRecords);
 	
 		} finally {
 			if(service != null) service.shutdown();
 		}
 		
-		//new Thread(this::readRecords).start();
-		
-		while(parserState != ProcessState.DONE) {
-			waitAleatory();
+		//while (writerState != ProcessState.DONE) {
+		while (readerState != ProcessState.DONE) {
+			try {
+				Runtime.getRuntime().gc();
+				Thread.sleep(30*1000);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		}
 		
+		printMonitor();
 		System.out.println("Finished!");
+	}
+	
+	private void printMonitor() {
+		System.out.println(
+				   "readSize: "    + readRecordsQueue.size() +
+				" / parsedSize: "  + parsedRecordsQueue.size() +
+				" / ReaderState: " + readerState +
+				" / ParserState: " + parserState +
+				" / WriterState: " + writerState
+			);
 	}
 	
 	public void printRecords() {
@@ -77,25 +96,43 @@ public class ParallelBatchProcess {
 	private void readRecords() {
 		reader
 		 .getRecordsMap()
-		 .limit(5)
-		 .map(this::logReadString)
+		 //.lines()
+		 //.limit(10000)
+		 //.map(this::logReadString)
 		 .map(readRecordsQueue::add)
 		 .forEach(this::setReaderStateToRunning);
 		
-		readerState = ProcessState.DONE;
+		Runtime.getRuntime().gc();
+		setReaderState(ProcessState.DONE);
 	}
 	
-	private String extractCpf(Map<String,String> record) {
-		return record.get("CPF_CNPJ").toString();
+	private void setReaderState(ProcessState newState) {
+		if (logProcessState) System.out.println("ReaderState: "+newState);
+		readerState = newState;
 	}
 	
-	private Map<String, Object> logParsedString(Map<String,Object> record){
-		System.out.println("PARSED: "+ record.toString());
+	private void setWriterState(ProcessState newState) {
+		if (logProcessState) System.out.println("WriterState: "+newState);
+		writerState = newState;
+	}
+	
+	private void setParserState(ProcessState newState) {
+		if (logProcessState) System.out.println("ParserState: "+newState);
+		parserState = newState;
+	}
+	
+	private String extractCpf(String record) {
+		FieldTO cpf = ReadLineHelper.getFieldFromLayout("CPF_CNPJ",recordLayout);
+		return ReadLineHelper.read(record, cpf);
+	}
+	
+	private Map<FieldTO, Object> logParsedString(Map<FieldTO,Object> record){
+		if (log) System.out.println("PARSED: "+ record.toString());
 		return record;
 	}
 	
-	private Map<String, String> logReadString(Map<String,String> record){
-		System.out.println("READ: "+ extractCpf(record));
+	private String logReadString(String record){
+		if (log) System.out.println("READ: "+ extractCpf(record));
 		return record;
 	}
 	
@@ -103,7 +140,7 @@ public class ParallelBatchProcess {
 		
 		List<Future<Void>> futureList = new LinkedList<>();
 		
-		parserState = ProcessState.RUNNING;
+		setParserState(ProcessState.RUNNING);
 		
 		while (!readRecordsQueue.isEmpty() || readerState != ProcessState.DONE) {
 			if (!readRecordsQueue.isEmpty()) {
@@ -129,25 +166,48 @@ public class ParallelBatchProcess {
 			e.printStackTrace();
 		}
 		
-		parserState = ProcessState.DONE;
+		Runtime.getRuntime().gc();
+		setParserState(ProcessState.DONE);
 	}
 	
-	private void addParsed(Map<String, Object> parsed){
-		parsedRecordsQueue.add(parsed);
+	private void addParsed(Map<FieldTO, Object> parsed){
 		logParsedString(parsed);
+		parsedRecordsQueue.add(parsed);
 	}
 	
 	private void setReaderStateToRunning(boolean isRunning) {
-		readerState = ProcessState.RUNNING;
-		 waitAleatory();
+		setReaderState(ProcessState.RUNNING);
 	}
 	
-	private void waitAleatory() {
-		try {
-			Thread.sleep(new Random().nextInt(200));
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+	private void writeRecords(){	
+		setWriterState(ProcessState.RUNNING);
+		
+		while (parserState != ProcessState.DONE || !parsedRecordsQueue.isEmpty()) {
+			if (!parsedRecordsQueue.isEmpty()) {
+				List<Map<FieldTO, Object>> parsedRecordsList = new LinkedList<>();
+				
+				while(!parsedRecordsQueue.isEmpty()) {
+					parsedRecordsList.add(parsedRecordsQueue.poll());
+				}
+				
+				Runtime.getRuntime().gc();
+						
+				try {
+					printMonitor();
+					System.out.println("WRITE: " + parsedRecordsList.size());
+					writer.write(parsedRecordsList);
+				} catch (SQLException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				parsedRecordsList = null;
+				Runtime.getRuntime().gc();
+			}
 		}
+		
+		writer.close();
+		
+		Runtime.getRuntime().gc();
+		setWriterState(ProcessState.DONE);
 	}
 }

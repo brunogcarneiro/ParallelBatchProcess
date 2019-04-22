@@ -13,7 +13,13 @@ public interface Reader {
 	 * Each Map represents a Record in the read file. The keys will be the Field names and the value, the string representation as it is in the read file.
 	 * @return A Stream of Maps that represents the Records in the read file.
 	 */
-	Stream<Map<String, String>> getRecordsMap();
+	Stream<String> getRecordsMap();
 	
-	//ReaderState getState();
+	/**
+	 * The reader will wait for miliseconds between read lines. It is usefull to simulate communication overhead.
+	 * @param miliseconds
+	 */
+	void setDelay(int miliseconds);
+	
+	public Stream<String> lines();
 }

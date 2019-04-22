@@ -22,9 +22,11 @@ public abstract class Field {
 			case "A" :
 				value = new AlphaNumeric(strValue);
 				break;
+			case "N":
+				value = new Currency(strValue);
+				break;
 			default :
-				value = new AlphaNumeric(strValue);
-				//throw new RuntimeException("Tipo de campo desconhecido: "+type);
+				throw new RuntimeException("Tipo de campo desconhecido: "+type);
 		}
 		
 		return value;
