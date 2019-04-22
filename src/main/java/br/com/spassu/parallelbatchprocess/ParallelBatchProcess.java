@@ -5,15 +5,12 @@ import java.sql.SQLException;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
-import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.stream.Collectors;
 
 import br.com.spassu.parallelbatchprocess.parse.Parser;
 import br.com.spassu.parallelbatchprocess.read.ReadLineHelper;
@@ -30,7 +27,7 @@ public class ParallelBatchProcess {
 	private ProcessState readerState = ProcessState.NOT_STARTED;
 	private ProcessState parserState = ProcessState.NOT_STARTED;
 	private ProcessState writerState = ProcessState.NOT_STARTED;
-	private boolean log = true;
+	private boolean log = false;
 	private boolean logProcessState = false;
 	
 	private ConcurrentLinkedQueue<String> readRecordsQueue = new ConcurrentLinkedQueue<>();
@@ -50,15 +47,15 @@ public class ParallelBatchProcess {
 			service = Executors.newCachedThreadPool();
 			
 			service.execute(this::readRecords);
-			//service.execute(this::parseRecords);
-			//service.execute(this::writeRecords);
+			service.execute(this::parseRecords);
+			service.execute(this::writeRecords);
 	
 		} finally {
 			if(service != null) service.shutdown();
 		}
 		
-		//while (writerState != ProcessState.DONE) {
-		while (readerState != ProcessState.DONE) {
+		while (writerState != ProcessState.DONE) {
+		//while (readerState != ProcessState.DONE) {
 			try {
 				Runtime.getRuntime().gc();
 				Thread.sleep(30*1000);

@@ -6,12 +6,14 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import br.com.spassu.parallelbatchprocess.read.xml.FieldTO;
@@ -19,6 +21,11 @@ import br.com.spassu.parallelbatchprocess.read.xml.LayoutTO;
 import br.com.spassu.parallelbatchprocess.read.xml.RecordTO;
 
 public class OracleWriter implements Writer {
+	private static final String PK_SEQUENCE_NAME = "pc_temp_sequence";
+	private static final String PK_COLUMN_NAME = "ident";
+	private static final int NOT_ZERO_BASED = 1; //The field's index in the list of values starts at 1, not 0.
+	private static final int SKIP_SEQUENCE_NEXTAVAL = 0; //The first place in the list of values belongs to the PK_SEQUENCE_NAME.nextval
+	
 	private int DELAY = 0;
 	
 	Connection conn;
@@ -33,23 +40,31 @@ public class OracleWriter implements Writer {
 		Class.forName ("oracle.jdbc.OracleDriver");
 		conn = DriverManager.getConnection(connectionString,user,pass);
 		this.layout = layout;
-		
+
 		orderedFields = 
 		layout.getRecords().get(0).getFields()
-		  .stream()
-		  .map(FieldTO::getName)
-		  .sorted()
-		  .collect(Collectors.toList());
+		  	  .stream()
+		      .map(FieldTO::getName)
+		      .sorted()
+		      .collect(Collectors.toList());
+		
+		List<String> columnList = 
+				Stream.of(PK_COLUMN_NAME)
+					  .collect(Collectors.toList());
+		columnList.addAll(orderedFields);
+		
+				  
 		
 		mySql.setLength(0);
 		
 		mySql.append("INSERT INTO pc_temp");
 
-		mySql.append(getColumnList(orderedFields));
-		mySql.append(" VALUES ");
+		mySql.append(getColumnList(columnList));
+		mySql.append(" VALUES (");
 		mySql.append(getValuesList(orderedFields));	
-		mySql.append(";");
+		mySql.append(")");
 		
+		System.out.println(mySql);
 		stmt = conn.prepareStatement(mySql.toString());
 	}
 	
@@ -60,10 +75,11 @@ public class OracleWriter implements Writer {
 			.forEach(this::addRecordToStatement);
 	
 		delay();//Used to simulate communication overhead. Default is 0 ms;
-		return stmt.execute();
+		return stmt.executeBatch() != null;
 	}
 	
 	private void addRecordToStatement(Map<FieldTO, Object> record) {
+		
 		record
 			.entrySet()
 			.stream()
@@ -78,7 +94,7 @@ public class OracleWriter implements Writer {
 	
 	private void addFieldToStatement(Entry<FieldTO, Object> field){
 		FieldTO fieldTO = field.getKey();
-		int columnIndex = orderedFields.indexOf(fieldTO.getName()) + 1;
+		int columnIndex = orderedFields.indexOf(fieldTO.getName()) + NOT_ZERO_BASED;
 		
 		try {
 			switch(fieldTO.getType()) {
@@ -118,11 +134,17 @@ public class OracleWriter implements Writer {
 	}
 
 	private String getValuesList(List<String> orderedFields) {
-		List<String> values =
-			orderedFields
-				.stream()
-				.map(str -> "?")
-				.collect(Collectors.toList());
+		Stream<String> nextVal = 
+			Arrays.asList(PK_SEQUENCE_NAME+".nextval")
+				  .stream();
+		
+		Stream<String> questionMarks =
+			orderedFields.stream()
+						 .map(field -> "?");
+		
+		List<String> values = 
+			Stream.concat(nextVal, questionMarks)
+				  .collect(Collectors.toList());
 		
 		return String.join(", ", values);
 	}

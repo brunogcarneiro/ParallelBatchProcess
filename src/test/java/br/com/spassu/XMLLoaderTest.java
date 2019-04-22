@@ -25,6 +25,7 @@ import org.junit.jupiter.api.TestInstance.Lifecycle;
 import br.com.spassu.parallelbatchprocess.ParallelBatchProcess;
 import br.com.spassu.parallelbatchprocess.parse.GenericParser;
 import br.com.spassu.parallelbatchprocess.parse.Parser;
+import br.com.spassu.parallelbatchprocess.writer.OracleWriter;
 import br.com.spassu.parallelbatchprocess.writer.RelationalDBWriter;
 import br.com.spassu.parallelbatchprocess.writer.Writer;
 import br.com.spassu.parallelbatchprocess.read.Reader;
@@ -58,7 +59,7 @@ public class XMLLoaderTest
         myParser = new GenericParser();
       //  myWriter = new RelationalDBWriter("jdbc:h2:~/pc","spassu","123");
         try {
-        myWriter = new RelationalDBWriter("jdbc:oracle:thin:@10.8.8.40:1521:HML02","pmpce","pmpce001");
+        myWriter = new OracleWriter("jdbc:oracle:thin:@10.8.8.40:1521:HML02","pmpce","pmpce001",layout);
         } catch (Exception e) {
         	System.out.println(e.getMessage() + e.getCause());
         	e.printStackTrace();
@@ -72,18 +73,18 @@ public class XMLLoaderTest
 			e1.printStackTrace();
 		}*/
        
-        //myBatch = new ParallelBatchProcess(myReader, myParser, layout.getRecord("0"), myWriter);
+        myBatch = new ParallelBatchProcess(myReader, myParser, layout.getRecord("0"), myWriter);
         
         assertTrue(true);
     }
 	
-	//@Test
+	@Test
     public void start() throws Exception
     {
        myBatch.start();
     }
 	
-	@Test
+	//@Test
     public void writerTest() throws Exception
     {
 		Map<String, Object> parsedRecord1 = Stream.of(
