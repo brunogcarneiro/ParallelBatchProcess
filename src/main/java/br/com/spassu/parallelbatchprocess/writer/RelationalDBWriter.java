@@ -11,6 +11,9 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import br.com.spassu.parallelbatchprocess.ProcessState;
+import br.com.spassu.parallelbatchprocess.read.xml.FieldTO;
+
 public class RelationalDBWriter implements Writer {
 	private int DELAY = 0;
 	
@@ -28,11 +31,13 @@ public class RelationalDBWriter implements Writer {
 		stmt  = conn.createStatement();
 	}
 	
+	@Override
 	public boolean write(List<Map<FieldTO, Object>> parsedRecords) throws SQLException {
 		orderedFields = parsedRecords.get(0)
 				.entrySet()
 				.stream()
 				.map(Entry::getKey)
+				.map(FieldTO::getName)
 				.sorted()
 				.collect(Collectors.toList());
 		
@@ -125,5 +130,29 @@ public class RelationalDBWriter implements Writer {
 	@Override
 	public void setDelay(int miliseconds) {
 		DELAY = miliseconds;
+	}
+
+	@Override
+	public void run() {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public ProcessState getState() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public void pushParsedItem(Object item) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public int countParsedItemReadyToWrite() {
+		// TODO Auto-generated method stub
+		return 0;
 	}
 }

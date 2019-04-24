@@ -7,15 +7,19 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Arrays;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import br.com.spassu.parallelbatchprocess.ProcessState;
+import br.com.spassu.parallelbatchprocess.parse.Parser;
 import br.com.spassu.parallelbatchprocess.read.xml.FieldTO;
 import br.com.spassu.parallelbatchprocess.read.xml.LayoutTO;
 import br.com.spassu.parallelbatchprocess.read.xml.RecordTO;
@@ -24,7 +28,6 @@ public class OracleWriter implements Writer {
 	private static final String PK_SEQUENCE_NAME = "pc_temp_sequence";
 	private static final String PK_COLUMN_NAME = "ident";
 	private static final int NOT_ZERO_BASED = 1; //The field's index in the list of values starts at 1, not 0.
-	private static final int SKIP_SEQUENCE_NEXTAVAL = 0; //The first place in the list of values belongs to the PK_SEQUENCE_NAME.nextval
 	
 	private int DELAY = 0;
 	
@@ -32,6 +35,13 @@ public class OracleWriter implements Writer {
 	PreparedStatement stmt;
 	List<String> orderedFields;
 	LayoutTO layout;
+
+	private ProcessState writerState = ProcessState.NOT_STARTED;
+	private Parser parser;
+	
+	private boolean log = false;
+	
+	private ConcurrentLinkedQueue<Map<FieldTO,Object>> parsedRecordsQueue = new ConcurrentLinkedQueue<>();
 	 
 	StringBuilder mySql = new StringBuilder();
 	
@@ -65,7 +75,12 @@ public class OracleWriter implements Writer {
 		mySql.append(")");
 		
 		System.out.println(mySql);
-		stmt = conn.prepareStatement(mySql.toString());
+		stmt = conn.prepareStatement(mySql.toString());	
+	}
+	
+	@Override
+	public void setParser(Parser parser) {
+		this.parser = parser;
 	}
 	
 	public boolean write(List<Map<FieldTO, Object>> parsedRecords) throws SQLException {
@@ -95,7 +110,7 @@ public class OracleWriter implements Writer {
 	private void addFieldToStatement(Entry<FieldTO, Object> field){
 		FieldTO fieldTO = field.getKey();
 		int columnIndex = orderedFields.indexOf(fieldTO.getName()) + NOT_ZERO_BASED;
-		
+
 		try {
 			switch(fieldTO.getType()) {
 				case "A":
@@ -110,17 +125,6 @@ public class OracleWriter implements Writer {
 		}catch (SQLException e) {
 			throw new RuntimeException("Erro de SQL ao adicionar field ao statement.", e);
 		}
-	}
-	
-	private FieldTO getFieldTO(int key) {
-		Optional<FieldTO> fieldTO =layout
-			.getRecords().get(0)
-			.getFields()
-			.stream()
-			.filter(f -> (f.getStart() == key))
-			.findFirst();
-		
-		return fieldTO.get();
 	}
 
 	private void delay() {
@@ -148,15 +152,6 @@ public class OracleWriter implements Writer {
 		
 		return String.join(", ", values);
 	}
-	
-	private String getRecordValues(Map<String, Object> record) {
-		StringBuilder recordValues = new StringBuilder();
-		recordValues.append("(");
-		recordValues.append(separateMapValuesByComma(record));
-		recordValues.append(")");
-		
-		return recordValues.toString();
-	}
 
 	private String getColumnList(List<String> orderedFields) {
 		StringBuilder columnList = new StringBuilder();
@@ -166,25 +161,6 @@ public class OracleWriter implements Writer {
 		columnList.append(")");
 		
 		return columnList.toString();
-	}
-	
-	private String separateMapValuesByComma(Map<String, Object> map) {
-		List<String> values = orderedFields
-			.stream()
-			.map(map::get)
-			.map(Object::toString)
-			.map(this::applyQuotes)
-			.collect(Collectors.toList());
-		
-		return String.join(", ", values);
-	}
-	
-	private String applyQuotes(String str) {
-		StringBuilder sb = new StringBuilder();
-		sb.append("'");
-		sb.append(str);
-		sb.append("'");
-		return sb.toString();
 	}
 
 	@Override
@@ -199,11 +175,84 @@ public class OracleWriter implements Writer {
 
 	@Override
 	public void cleanTable() throws SQLException {
-		stmt.execute("DELETE FROM pc_temp");
+		conn.createStatement().execute("TRUNCATE TABLE pc_temp");
 	}
 
 	@Override
 	public void setDelay(int miliseconds) {
 		DELAY = miliseconds;
+	}
+
+	@Override
+	public void pushParsedItem(Object item) {
+		Map<FieldTO, Object> parsed = (Map<FieldTO, Object>) item;
+		
+		logParsedString(parsed);
+		parsedRecordsQueue.add(parsed);
+	}
+	
+	private Map<FieldTO, Object> logParsedString(Map<FieldTO,Object> record){
+		if (log) System.out.println("PARSED: "+ record.toString());
+		return record;
+	}
+
+	private void notifyWriterState(ProcessState newState) {
+		writerState = newState;
+	}
+
+	@Override
+	public ProcessState getState() {
+		return this.writerState;
+	}
+
+	@Override
+	public int countParsedItemReadyToWrite() {
+		return parsedRecordsQueue.size();
+	}
+
+	@Override
+	public Boolean call() throws Exception {
+		boolean result;
+		try {
+			notifyWriterState(ProcessState.RUNNING);
+			
+			while (parser.getState() != ProcessState.DONE || !parsedRecordsQueue.isEmpty()) {
+				
+				if (parser.getState() == ProcessState.ERROR) {
+					throw new Exception("Writer interrompido por falha no Parser.");
+				}
+				
+				if (!parsedRecordsQueue.isEmpty()) {
+					List<Map<FieldTO, Object>> parsedRecordsList = new LinkedList<>();
+					
+					while(!parsedRecordsQueue.isEmpty()) {
+						parsedRecordsList.add(parsedRecordsQueue.poll());
+					}
+							
+					try {
+						//printMonitor();
+						System.out.println("WRITE: " + parsedRecordsList.size());
+						write(parsedRecordsList);
+					} catch (SQLException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+					parsedRecordsList = null;
+					Runtime.getRuntime().gc();
+				}
+			}
+			
+			this.close();
+
+			notifyWriterState(ProcessState.DONE);
+			result = true;
+			
+		} catch (Throwable t) {
+			System.out.println("Falha no Writer: " + t.getMessage());
+			notifyWriterState(ProcessState.ERROR);
+			result = false;
+		}
+		
+		return result;
 	}
 }

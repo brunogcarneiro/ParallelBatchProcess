@@ -16,6 +16,7 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import br.com.spassu.parallelbatchprocess.ProcessState;
+import br.com.spassu.parallelbatchprocess.parse.Parser;
 import br.com.spassu.parallelbatchprocess.read.xml.FieldTO;
 import br.com.spassu.parallelbatchprocess.read.xml.RecordTO;
 
@@ -25,11 +26,14 @@ public class TextReader implements Reader {
 	RecordTO recordLayout;
 	int recordLength;
 	ProcessState state = ProcessState.NOT_STARTED;
+	
+	Parser parser;
 
-	public TextReader(String path, RecordTO recordLayout) throws IOException {
+	public TextReader(String path, RecordTO recordLayout, Parser parser) throws IOException {
 		br = Files.newBufferedReader(Paths.get(path));
 		this.recordLayout = recordLayout;
 		this.recordLength = calculateRecordSize(recordLayout);
+		this.parser = parser;
 	}
 	
 	public Stream<String> recordStream() {
@@ -53,6 +57,11 @@ public class TextReader implements Reader {
             }
 
             public String next() {
+            	
+            	if (parser.getState() == ProcessState.ERROR) {
+            		throw new RuntimeException("Reader interrompido por erro no Parser.");
+            	}
+            	
                 if (nextLine != null || hasNext()) {
                     String line = new String(nextLine);
                     nextLineLength = -1;
@@ -102,7 +111,6 @@ public class TextReader implements Reader {
 	@Override
 	public Stream<String> getRecordsMap() {
 		return recordStream();
-			//.map(this::createRecordMap);
 	}
 
 	@Override
@@ -112,6 +120,37 @@ public class TextReader implements Reader {
 	
 	public Stream<String> lines() {
 		return br.lines();
-				//.map(this::createRecordMap);
+	}
+
+	@Override
+	public ProcessState getState() {
+		return this.state;
+	}
+
+	@Override
+	public void setParser(Parser parser) {
+		this.parser = parser;
+	}
+
+	@Override
+	public Boolean call() throws Exception {
+		try {
+			this.state = ProcessState.RUNNING;
+			
+			
+			getRecordsMap()
+			 .forEach(parser::pushReadItem);
+			
+			//throw new Exception("test exception");
+			
+			this.state = ProcessState.DONE;
+			
+			
+		} catch (Throwable t) {
+			System.out.println("Falha no Reader: " + t.getMessage());
+			this.state = ProcessState.ERROR;
+		}
+		
+		return null;
 	}
 }

@@ -55,8 +55,12 @@ public class XMLLoaderTest
         
         //System.out.println(new File(".").getCanonicalPath());
         String testResourcePath = "src/test/resources/";
-        myReader = new TextReader(testResourcePath+"layout/example1.txt", layout.getRecord("0"));
-        myParser = new GenericParser();
+        myReader = new TextReader(testResourcePath+"layout/example1.txt", layout.getRecord("0"), myParser);
+        
+        
+        myParser = new GenericParser(layout.getRecord("0"));
+       
+        
       //  myWriter = new RelationalDBWriter("jdbc:h2:~/pc","spassu","123");
         try {
         myWriter = new OracleWriter("jdbc:oracle:thin:@10.8.8.40:1521:HML02","pmpce","pmpce001",layout);
@@ -64,16 +68,28 @@ public class XMLLoaderTest
         	System.out.println(e.getMessage() + e.getCause());
         	e.printStackTrace();
         }
+           
+        myReader.setParser(myParser);
+        
+        myParser.setReader(myReader);
+        myParser.setWriter(myWriter);
+        
+        myWriter.setParser(myParser);
         
         
-		/*try {
-			//myWriter.cleanTable();
+		try {
+			myWriter.cleanTable();
 		} catch (SQLException e1) {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
-		}*/
+		}
        
         myBatch = new ParallelBatchProcess(myReader, myParser, layout.getRecord("0"), myWriter);
+        
+        /*myReader.setBatch(myBatch);
+        myParser.setBatch(myBatch);
+        myWriter.setBatch(myBatch);*/
+        
         
         assertTrue(true);
     }
