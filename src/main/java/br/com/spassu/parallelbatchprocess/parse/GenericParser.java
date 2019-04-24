@@ -3,12 +3,9 @@ package br.com.spassu.parallelbatchprocess.parse;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -111,48 +108,36 @@ public class GenericParser implements Parser{
 
 	@Override
 	public Boolean call() throws Exception {
-		try {
-			int count = 0;
+		int count = 0;
+		
+		List<Future<Void>> futureList = new LinkedList<>();
+		
+		this.parserState = ProcessState.RUNNING;
+		
+		while (!readRecordsQueue.isEmpty() || reader.getState() != ProcessState.DONE) {
 			
-			List<Future<Void>> futureList = new LinkedList<>();
+			/*if (count++ > 500) {
+				throw new RuntimeException("Test erro no parser");
+			}*/
 			
-			this.parserState = ProcessState.RUNNING;
-			
-			while (!readRecordsQueue.isEmpty() || reader.getState() != ProcessState.DONE) {
-				
-				if (count++ > 500) {
-					throw new RuntimeException("Test erro no parser");
-				}
-				
-				if (reader.getState() == ProcessState.ERROR) {
-					throw new Exception("Parser interrompido por falha no Reader.");
-				}
-				
-				if (!readRecordsQueue.isEmpty()) {
-					try {
-						futureList.add(
-							parse(readRecordsQueue.poll())
-								.thenAccept(writer::pushParsedItem)
-						);
-					} catch (Exception e1) {
-						e1.printStackTrace();
-					}
-					
-				}
+			if (reader.getState() == ProcessState.ERROR) {
+				throw new Exception("Parser interrompido por falha no Reader.");
 			}
 			
-			CompletableFuture<Void> allFutures = CompletableFuture.allOf(futureList.toArray(new CompletableFuture[futureList.size()]));
-		
-			allFutures.get();
-			
-			this.parserState = ProcessState.DONE;
-		
-		} catch (Throwable t) {
-			System.out.println("Falha no Parser: " + t.getMessage());
-			this.parserState = ProcessState.ERROR;
-			
+			if (!readRecordsQueue.isEmpty()) {
+				futureList.add(
+					parse(readRecordsQueue.poll())
+						.thenAccept(writer::pushParsedItem)
+				);
+			}
 		}
 		
-		return null;
+		CompletableFuture<Void> allFutures = CompletableFuture.allOf(futureList.toArray(new CompletableFuture[futureList.size()]));
+	
+		allFutures.get();
+		
+		this.parserState = ProcessState.DONE;
+		
+		return true;
 	}
 }

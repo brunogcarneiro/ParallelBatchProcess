@@ -6,12 +6,9 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Iterator;
-import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Spliterator;
 import java.util.Spliterators;
-import java.util.concurrent.locks.ReentrantReadWriteLock.ReadLock;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -40,6 +37,8 @@ public class TextReader implements Reader {
         Iterator<String> iter = new Iterator<String>() {
         	int nextLineLength = -1;
             char[] nextLine = new char[recordLength];
+            
+            int count = 0;
 
             public boolean hasNext() {
                 if (nextLineLength > -1) {
@@ -58,9 +57,9 @@ public class TextReader implements Reader {
 
             public String next() {
             	
-            	if (parser.getState() == ProcessState.ERROR) {
-            		throw new RuntimeException("Reader interrompido por erro no Parser.");
-            	}
+            	/*if (count++ > 500) {
+            		throw new RuntimeException("Test exception in Reader");
+            	}*/
             	
                 if (nextLine != null || hasNext()) {
                     String line = new String(nextLine);
@@ -95,18 +94,6 @@ public class TextReader implements Reader {
 
 		return recordSize;
 	}
-	
-	private Map<String, String> createRecordMap(String recordStr) {	
-		return recordLayout
-			.getFields()
-			.stream()
-			.collect(
-				Collectors.toMap(
-					FieldTO::getName,
-					fieldTO -> recordStr.substring(fieldTO.getStart()-1, fieldTO.getStart()-1+fieldTO.getSize())
-				)
-			);
-	}
 
 	@Override
 	public Stream<String> getRecordsMap() {
@@ -134,23 +121,13 @@ public class TextReader implements Reader {
 
 	@Override
 	public Boolean call() throws Exception {
-		try {
-			this.state = ProcessState.RUNNING;
-			
-			
-			getRecordsMap()
-			 .forEach(parser::pushReadItem);
-			
-			//throw new Exception("test exception");
-			
-			this.state = ProcessState.DONE;
-			
-			
-		} catch (Throwable t) {
-			System.out.println("Falha no Reader: " + t.getMessage());
-			this.state = ProcessState.ERROR;
-		}
+		this.state = ProcessState.RUNNING;
 		
-		return null;
+		getRecordsMap()
+		 .forEach(parser::pushReadItem);
+		
+		this.state = ProcessState.DONE;
+		
+		return true;
 	}
 }

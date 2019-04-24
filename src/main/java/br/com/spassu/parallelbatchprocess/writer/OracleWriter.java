@@ -5,29 +5,26 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.Optional;
-import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import br.com.spassu.parallelbatchprocess.ProcessState;
 import br.com.spassu.parallelbatchprocess.parse.Parser;
 import br.com.spassu.parallelbatchprocess.read.xml.FieldTO;
 import br.com.spassu.parallelbatchprocess.read.xml.LayoutTO;
-import br.com.spassu.parallelbatchprocess.read.xml.RecordTO;
 
 public class OracleWriter implements Writer {
 	private static final String PK_SEQUENCE_NAME = "pc_temp_sequence";
 	private static final String PK_COLUMN_NAME = "ident";
 	private static final int NOT_ZERO_BASED = 1; //The field's index in the list of values starts at 1, not 0.
+	private static final int MAX_LIMIT_DB_BATCH = 1000; //The field's index in the list of values starts at 1, not 0.
+	private static final int MIN_LIMIT_DB_BATCH = 1000;
 	
 	private int DELAY = 0;
 	
@@ -52,18 +49,15 @@ public class OracleWriter implements Writer {
 		this.layout = layout;
 
 		orderedFields = 
-		layout.getRecords().get(0).getFields()
-		  	  .stream()
+		layout.getRecords().get(0)
+			  .getFields().stream()
 		      .map(FieldTO::getName)
 		      .sorted()
 		      .collect(Collectors.toList());
 		
-		List<String> columnList = 
-				Stream.of(PK_COLUMN_NAME)
-					  .collect(Collectors.toList());
+		List<String> columnList = new LinkedList<>();
+		columnList.add(PK_COLUMN_NAME);
 		columnList.addAll(orderedFields);
-		
-				  
 		
 		mySql.setLength(0);
 		
@@ -169,7 +163,7 @@ public class OracleWriter implements Writer {
 			stmt.close();
 			conn.close();
 		} catch (SQLException e) {
-			e.printStackTrace();
+			throw new RuntimeException(e);
 		}
 	}
 
@@ -198,6 +192,7 @@ public class OracleWriter implements Writer {
 
 	private void notifyWriterState(ProcessState newState) {
 		writerState = newState;
+		System.out.println("Writer is " + newState);
 	}
 
 	@Override
@@ -209,50 +204,70 @@ public class OracleWriter implements Writer {
 	public int countParsedItemReadyToWrite() {
 		return parsedRecordsQueue.size();
 	}
+	
+	private long getBatchLimit(int queueSize) {
+		int batchLimit = (MAX_LIMIT_DB_BATCH > 0) ? MAX_LIMIT_DB_BATCH : Integer.MAX_VALUE;
+		return (batchLimit < queueSize) 
+					? batchLimit 
+					: queueSize;
+	}
+	
+	private void waitSeconds(int seconds) {
+		try {
+			Thread.sleep(seconds*1000);
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	private boolean existsItemsToWrite() {
+		return parser.getState() != ProcessState.DONE || !parsedRecordsQueue.isEmpty();
+	}
 
 	@Override
 	public Boolean call() throws Exception {
-		boolean result;
-		try {
-			notifyWriterState(ProcessState.RUNNING);
-			
-			while (parser.getState() != ProcessState.DONE || !parsedRecordsQueue.isEmpty()) {
-				
-				if (parser.getState() == ProcessState.ERROR) {
-					throw new Exception("Writer interrompido por falha no Parser.");
-				}
-				
-				if (!parsedRecordsQueue.isEmpty()) {
-					List<Map<FieldTO, Object>> parsedRecordsList = new LinkedList<>();
-					
-					while(!parsedRecordsQueue.isEmpty()) {
-						parsedRecordsList.add(parsedRecordsQueue.poll());
-					}
-							
-					try {
-						//printMonitor();
-						System.out.println("WRITE: " + parsedRecordsList.size());
-						write(parsedRecordsList);
-					} catch (SQLException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-					parsedRecordsList = null;
-					Runtime.getRuntime().gc();
-				}
-			}
-			
-			this.close();
 
-			notifyWriterState(ProcessState.DONE);
-			result = true;
-			
-		} catch (Throwable t) {
-			System.out.println("Falha no Writer: " + t.getMessage());
-			notifyWriterState(ProcessState.ERROR);
-			result = false;
+		int count = 0;
+		
+		List<Map<FieldTO, Object>> parsedRecordsList;
+		
+		notifyWriterState(ProcessState.RUNNING);
+		
+		while (existsItemsToWrite()) {
+
+			/*if (count++ > 500) {
+				throw new Exception("Test exception in the Writer");
+			}*/
+
+			if (hasEnoughParsedItemsToWrite()) {
+
+				parsedRecordsList = 
+				Stream.iterate(0, n -> n++)
+					  .limit(getBatchLimit(parsedRecordsQueue.size()))
+					  .map(n -> parsedRecordsQueue.poll())
+					  .collect(Collectors.toList());
+
+				System.out.println("Write: "+parsedRecordsList.size());
+				write(parsedRecordsList);
+				
+				parsedRecordsList = null;
+			} else {
+				waitSeconds(1);
+			}
 		}
 		
-		return result;
+		this.close();
+
+		notifyWriterState(ProcessState.DONE);
+
+		return true;
+	}
+
+	private boolean hasEnoughParsedItemsToWrite() {
+		boolean reachMinBatchLimit = parsedRecordsQueue.size() >= MIN_LIMIT_DB_BATCH;
+		boolean parseIsDone = parser.getState() == ProcessState.DONE;
+		
+		return reachMinBatchLimit || parseIsDone;
 	}
 }
