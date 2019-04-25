@@ -3,16 +3,15 @@ package br.com.spassu;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.File;
 import java.math.BigDecimal;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.SQLException;
-import java.util.Collections;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.AbstractMap.SimpleEntry;
-import java.util.Arrays;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -22,16 +21,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
 
-import br.com.spassu.parallelbatchprocess.ParallelBatchProcess;
-import br.com.spassu.parallelbatchprocess.parse.GenericParser;
-import br.com.spassu.parallelbatchprocess.parse.Parser;
-import br.com.spassu.parallelbatchprocess.writer.OracleWriter;
-import br.com.spassu.parallelbatchprocess.writer.RelationalDBWriter;
-import br.com.spassu.parallelbatchprocess.writer.Writer;
-import br.com.spassu.parallelbatchprocess.read.Reader;
-import br.com.spassu.parallelbatchprocess.read.TextReader;
-import br.com.spassu.parallelbatchprocess.read.xml.LayoutTO;
-import br.com.spassu.parallelbatchprocess.read.xml.XMLLoader;
+import br.com.banestes.mpc.batch.ParallelBatchProcess;
+import br.com.banestes.mpc.batch.parse.GenericParser;
+import br.com.banestes.mpc.batch.parse.Parser;
+import br.com.banestes.mpc.batch.read.Reader;
+import br.com.banestes.mpc.batch.read.TextReader;
+import br.com.banestes.mpc.batch.read.xml.LayoutTO;
+import br.com.banestes.mpc.batch.read.xml.XMLLoader;
+import br.com.banestes.mpc.batch.writer.OracleWriter;
+import br.com.banestes.mpc.batch.writer.Writer;
 
 /**
  * Unit test for simple App.
@@ -39,6 +37,16 @@ import br.com.spassu.parallelbatchprocess.read.xml.XMLLoader;
 @TestInstance(Lifecycle.PER_CLASS)
 public class XMLLoaderTest
 {
+	//INTERNAL PARAMS
+	private static final String LAYOUT_FILE = "layout2.xml";
+	
+	/**
+	 * EXTERNAL PARAMS
+	 * 
+	 * They will be passed through VM arguments when the process was executed
+	 */
+	private static String INPUT_DIRECTORY;
+	
 	LayoutTO layout;
 	ParallelBatchProcess myBatch;
 	Reader myReader;
@@ -49,25 +57,17 @@ public class XMLLoaderTest
 	@BeforeAll
     public void loadXML() throws Exception
     {
-		layout = XMLLoader.loadLayoutFromXML("layout2.xml");
+		layout = XMLLoader.loadLayoutFromXML(LAYOUT_FILE);
         assertEquals(layout.getRecords().size(), 1);
         assertEquals(layout.getRecord("0").getFields().size(), 74);
         
-        //System.out.println(new File(".").getCanonicalPath());
-        String testResourcePath = "src/test/resources/";
-        myReader = new TextReader(testResourcePath+"layout/example1.txt", layout.getRecord("0"), myParser);
-        
-        
-        myParser = new GenericParser(layout.getRecord("0"));
+        INPUT_DIRECTORY = "src/test/resources";
+        Path myPath = Paths.get(INPUT_DIRECTORY,"layout/example1.txt");
+        myReader = new TextReader(myPath, layout.getRecord("0"));
        
+        myParser = new GenericParser(layout.getRecord("0"));
         
-      //  myWriter = new RelationalDBWriter("jdbc:h2:~/pc","spassu","123");
-        try {
         myWriter = new OracleWriter("jdbc:oracle:thin:@10.8.8.40:1521:HML02","pmpce","pmpce001",layout);
-        } catch (Exception e) {
-        	System.out.println(e.getMessage() + e.getCause());
-        	e.printStackTrace();
-        }
            
         myReader.setParser(myParser);
         
@@ -84,13 +84,8 @@ public class XMLLoaderTest
 			e1.printStackTrace();
 		}
        
-        myBatch = new ParallelBatchProcess(myReader, myParser, layout.getRecord("0"), myWriter);
-        
-        /*myReader.setBatch(myBatch);
-        myParser.setBatch(myBatch);
-        myWriter.setBatch(myBatch);*/
-        
-        
+        myBatch = new ParallelBatchProcess(myReader, myParser, myWriter);
+
         assertTrue(true);
     }
 	
